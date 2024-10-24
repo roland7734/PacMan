@@ -22,6 +22,7 @@ import tkinter
 import os.path
 from tkinter import Canvas
 
+LAYER_COUNT = 10
 
 _Windows = sys.platform == 'win32'  # True if on Win95/98/NT
 
@@ -193,6 +194,59 @@ def circle(pos, r, outlineColor, fillColor=None, endpoints=None, style='pieslice
 
     return _canvas.create_arc(x0, y0, x1, y1, outline=outlineColor, fill=fillColor or outlineColor,
                               extent=e[1] - e[0], start=e[0], style=style, width=width)
+
+def create_portal_layer(x, y, rad, main_color, i):
+    def lighten_color(hex_color, factor=0.3):
+        """Lightens a given HEX color."""
+        r = int(hex_color[1:3], 16)
+        g = int(hex_color[3:5], 16)
+        b = int(hex_color[5:7], 16)
+
+        r = min(int(r + (255 - r) * factor), 255)
+        g = min(int(g + (255 - g) * factor), 255)
+        b = min(int(b + (255 - b) * factor), 255)
+
+        return f'#{r:02x}{g:02x}{b:02x}'
+
+
+    current_radius = rad - i * (rad // LAYER_COUNT)
+    shade = lighten_color(main_color, factor=(i / LAYER_COUNT))
+
+    return _canvas.create_oval(
+            x - current_radius, y - current_radius,
+            x + current_radius, y + current_radius,
+            outline=shade, width=3, fill=''
+        )
+
+     # _canvas.update()
+        # time.sleep(0.05)  # Pause to create a dynamic effect
+
+
+    # # Example usage in a Tkinter window
+    # root = tkinter.Tk()
+    # root.title("Portal Effect")
+    #
+    # # Set up a canvas
+    # width, height = 500, 500
+    # canvas = Canvas(root, width=width, height=height)
+    # canvas.pack()
+    #
+    # # Create a blue glowing portal in the center
+    # create_portal(center=(width // 2, height // 2), radius=100, main_color='#00f', canvas=canvas)
+    #
+    # root.mainloop()
+
+def create_shield(pos, r, outer_rim_color, inner_body_color, boss_color):
+    circle(pos, r, outlineColor=outer_rim_color, fillColor=outer_rim_color, width=5)
+
+    circle(pos, r - 10, outlineColor=inner_body_color, fillColor=inner_body_color, width=5)
+
+    circle(pos, r // 4, outlineColor=boss_color, fillColor=boss_color, width=3)
+
+    circle(pos, r - 20, outlineColor=outer_rim_color, fillColor=None, width=3)
+
+
+
 
 def image(pos, file="../../blueghost.gif"):
     x, y = pos
@@ -395,60 +449,6 @@ ghost_shape = [
   ]
 
 
-def create_portal(center, radius, main_color, canvas, layer_count=10):
-    """
-    Draws a glowing portal effect using different shades of a given color.
-
-    Args:
-    center (tuple): (x, y) center of the portal
-    radius (int): Radius of the portal
-    main_color (str): The main color for the portal in HEX (e.g. '#00f' for blue)
-    canvas (tkinter.Canvas): The canvas where the portal will be drawn
-    layer_count (int): Number of layers to create the glow effect
-    """
-    x, y = center
-    r = radius
-
-    def lighten_color(hex_color, factor=0.3):
-        """Lightens a given HEX color."""
-        r = int(hex_color[1:3], 16)
-        g = int(hex_color[3:5], 16)
-        b = int(hex_color[5:7], 16)
-
-        r = min(int(r + (255 - r) * factor), 255)
-        g = min(int(g + (255 - g) * factor), 255)
-        b = min(int(b + (255 - b) * factor), 255)
-
-        return f'#{r:02x}{g:02x}{b:02x}'
-
-    for i in range(layer_count):
-        # Adjusting radius and colors for each layer
-        current_radius = r - i * (r // layer_count)
-        shade = lighten_color(main_color, factor=(i / layer_count))
-
-        # Drawing each layer with decreasing intensity
-        canvas.create_oval(
-            x - current_radius, y - current_radius,
-            x + current_radius, y + current_radius,
-            outline=shade, width=3, fill=''
-        )
-        canvas.update()
-        time.sleep(0.05)  # Pause to create a dynamic effect
-
-
-# Example usage in a Tkinter window
-root = tkinter.Tk()
-root.title("Portal Effect")
-
-# Set up a canvas
-width, height = 500, 500
-canvas = Canvas(root, width=width, height=height)
-canvas.pack()
-
-# Create a blue glowing portal in the center
-create_portal(center=(width // 2, height // 2), radius=100, main_color='#00f', canvas=canvas)
-
-root.mainloop()
 
 
 if __name__ == '__main__':

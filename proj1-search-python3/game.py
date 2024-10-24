@@ -127,6 +127,9 @@ class AgentState:
         self.configuration = startConfiguration
         self.isPacman = isPacman
         self.scaredTimer = 0
+        self.speedBoosterTimer = 0
+        self.freezerTimer = 0
+        self.shieldTimer = 0
         self.numCarrying = 0
         self.numReturned = 0
 
@@ -142,12 +145,14 @@ class AgentState:
         return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer
 
     def __hash__(self):
-        return hash(hash(self.configuration) + 13 * hash(self.scaredTimer))
+        return hash(hash(self.configuration) + 13 * hash(self.scaredTimer)+31*hash(self.speedBoosterTimer)+7*hash(self.shieldTimer))
 
     def copy( self ):
         state = AgentState( self.start, self.isPacman )
         state.configuration = self.configuration
         state.scaredTimer = self.scaredTimer
+        state.speedBoosterTimer = self.speedBoosterTimer
+        state.shieldTimer = self.shieldTimer
         state.numCarrying = self.numCarrying
         state.numReturned = self.numReturned
         return state
@@ -383,11 +388,21 @@ class GameStateData:
             self.layout = prevState.layout
             self._eaten = prevState._eaten
             self.score = prevState.score
+            self.speedBoosted = False
+            self.shielded = False
+            self.shielded = False
+            self.speedBoostTimer = 0
+            # self.freezers = prevState.freezers[:]
+            self.speedBoosters = prevState.speedBoosters[:] #it is a list
+            self.shields = prevState.shields[:]
 
         self._foodEaten = None
         self._foodAdded = None
         self._capsuleEaten = None
+        self._speedBoosterEaten = None
         self._agentMoved = None
+        self._shieldEaten = None
+        self._freezerEaten = None
         self._lose = False
         self._win = False
         self.scoreChange = 0
@@ -400,6 +415,8 @@ class GameStateData:
         state._foodEaten = self._foodEaten
         state._foodAdded = self._foodAdded
         state._capsuleEaten = self._capsuleEaten
+        state._shieldEaten = self._shieldEaten
+        state._speedBoosterEaten = self._speedBoosterEaten
         return state
 
     def copyAgentStates( self, agentStates ):
@@ -418,6 +435,8 @@ class GameStateData:
         if not self.food == other.food: return False
         if not self.capsules == other.capsules: return False
         if not self.score == other.score: return False
+        if not self.speedBoosters == other.speedBoosters: return False
+        if not self.shields == other.shields: return False
         return True
 
     def __hash__( self ):
@@ -430,7 +449,8 @@ class GameStateData:
             except TypeError as e:
                 print(e)
                 #hash(state)
-        return int((hash(tuple(self.agentStates)) + 13*hash(self.food) + 113* hash(tuple(self.capsules)) + 7 * hash(self.score)) % 1048575 )
+        return int((hash(tuple(self.agentStates)) + 13*hash(self.food) + 113* hash(tuple(self.capsules)) + 7 * hash(self.score)+
+                    31*hash(tuple(self.speedBoosters)) + 41* hash(tuple(self.shields)) )% 1048575 )
 
     def __str__( self ):
         width, height = self.layout.width, self.layout.height
@@ -454,6 +474,10 @@ class GameStateData:
 
         for x, y in self.capsules:
             map[x][y] = 'o'
+        for x,y in self.speedBoosters:
+            map[x][y] = 'B'
+        for x,y in self.shields:
+            map[x][y] = 'S'
 
         return str(map) + ("\nScore: %d\n" % self.score)
 
@@ -491,6 +515,8 @@ class GameStateData:
         self.food = layout.food.copy()
         #self.capsules = []
         self.capsules = layout.capsules[:]
+        self.speedBoosters = layout.speedBoosters[:]
+        self.shields = layout.shields[:]
         self.layout = layout
         self.score = 0
         self.scoreChange = 0
