@@ -436,19 +436,19 @@ def create_portal(center, radius, main_color, canvas, layer_count=10):
         time.sleep(0.05)  # Pause to create a dynamic effect
 
 
-# Example usage in a Tkinter window
-root = tkinter.Tk()
-root.title("Portal Effect")
-
-# Set up a canvas
-width, height = 500, 500
-canvas = Canvas(root, width=width, height=height)
-canvas.pack()
-
-# Create a blue glowing portal in the center
-create_portal(center=(width // 2, height // 2), radius=100, main_color='#00f', canvas=canvas)
-
-root.mainloop()
+# # Example usage in a Tkinter window
+# root = tkinter.Tk()
+# root.title("Portal Effect")
+#
+# # Set up a canvas
+# width, height = 500, 500
+# canvas = Canvas(root, width=width, height=height)
+# canvas.pack()
+#
+# # Create a blue glowing portal in the center
+# create_portal(center=(width // 2, height // 2), radius=100, main_color='#00f', canvas=canvas)
+#
+# root.mainloop()
 
 
 if __name__ == '__main__':

@@ -43,6 +43,7 @@ from game import GameStateData
 from game import Game
 from game import Directions
 from game import Actions
+from graphicsDisplay import PACMAN_SCALE
 from util import nearestPoint
 from util import manhattanDistance
 import util, layout
@@ -111,6 +112,8 @@ class GameState:
         # Time passes
         if agentIndex == 0:
             state.data.scoreChange += -TIME_PENALTY # Penalty for waiting around
+            PacmanRules.decrementSpeedBoosterTimer(state.data.agentStates[0])
+            PacmanRules.decrementShieldTimer(state.data.agentStates[0])
         else:
             GhostRules.decrementTimer( state.data.agentStates[agentIndex] )
 
@@ -172,6 +175,8 @@ class GameState:
         Returns a list of positions (x,y) of the remaining capsules.
         """
         return self.data.capsules
+    def getSpeedBoosters(self):
+        return self.data.speedBoosters
 
     def getNumFood( self ):
         return self.data.food.count()
@@ -262,7 +267,8 @@ class GameState:
 SCARED_TIME = 40    # Moves ghosts are scared
 COLLISION_TOLERANCE = 0.7 # How close ghosts must be to Pacman to kill
 TIME_PENALTY = 1 # Number of points lost each round
-
+SPEED_BOOST_TIME=20 # Moves pacman is fast
+SHIELD_TIME=20 #Pacman is protected
 class ClassicGameRules:
     """
     These game rules manage the control flow of a game, deciding when
@@ -327,6 +333,11 @@ class PacmanRules:
     """
     PACMAN_SPEED=1
 
+    def increaseSpeed( self ):
+        PACMAN_SPEED=3
+    def decreaseSpeed( self ):
+        PACMAN_SPEED=1
+
     def getLegalActions( state ):
         """
         Returns a list of possible actions.
@@ -356,6 +367,20 @@ class PacmanRules:
             PacmanRules.consume( nearest, state )
     applyAction = staticmethod( applyAction )
 
+    def decrementSpeedBoosterTimer(pacmanState):
+        timer = pacmanState.speedBoosterTimer
+        # if timer == 1:
+        #     pacmanState.configuration.pos = nearestPoint(pacmanState.configuration.pos)
+        pacmanState.speedBoosterTimer = max(0, timer - 1)
+    decrementSpeedBoosterTimer = staticmethod(decrementSpeedBoosterTimer)
+
+    def decrementShieldTimer(pacmanState ):
+        timer = pacmanState.shieldTimer
+        # if timer == 1:
+        #     pacmanState.configuration.pos = nearestPoint( ghostState.configuration.pos )
+        pacmanState.shieldTimer = max( 0, timer - 1 )
+    decrementShieldTimer = staticmethod( decrementShieldTimer )
+
     def consume( position, state ):
         x,y = position
         # Eat food
@@ -376,6 +401,17 @@ class PacmanRules:
             # Reset all ghosts' scared timers
             for index in range( 1, len( state.data.agentStates ) ):
                 state.data.agentStates[index].scaredTimer = SCARED_TIME
+        #Eat speedBooster
+        if position in state.getSpeedBoosters():
+            state.data.speedBoosted = True
+            state.data.speedBoostTimer = SPEED_BOOST_TIME
+            state.data.speedBoosters.remove(position)
+
+        # Eat shield
+        if position in state.getShields():
+            state.data.shields = True
+            state.data.shieldTimer = SHIELD_TIME
+            state.data.shields.remove(position)
     consume = staticmethod( consume )
 
 class GhostRules:
@@ -417,6 +453,7 @@ class GhostRules:
             ghostState.configuration.pos = nearestPoint( ghostState.configuration.pos )
         ghostState.scaredTimer = max( 0, timer - 1 )
     decrementTimer = staticmethod( decrementTimer )
+
 
     def checkDeath( state, agentIndex):
         pacmanPosition = state.getPacmanPosition()

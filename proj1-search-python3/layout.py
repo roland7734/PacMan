@@ -24,7 +24,10 @@ class Layout:
     """
     A Layout manages the static information about the game board.
     """
-
+    blueTunnel = []
+    greenTunnel = []
+    speedBoosters = []
+    shields = []
     def __init__(self, layoutText):
         self.width = len(layoutText[0])
         self.height= len(layoutText)
@@ -36,8 +39,7 @@ class Layout:
         self.processLayoutText(layoutText)
         self.layoutText = layoutText
         self.totalFood = len(self.food.asList())
-        self.blueTunnel = []
-        self.greenTunnel = []
+
         # self.initializeVisibilityMatrix()
 
     def getNumGhosts(self):
@@ -67,6 +69,7 @@ class Layout:
     def isWall(self, pos):
         x, col = pos
         return self.walls[x][col]
+
 
     def getRandomLegalPosition(self):
         x = random.choice(range(self.width))
@@ -135,6 +138,10 @@ class Layout:
             self.blueTunnel.append((x,y))
         elif layoutChar == 'Y':
             self.greenTunnel.append((x,y))
+        elif layoutChar == 'B':
+            self.speedBoosters.append((x, y))
+        elif layoutChar == 'S':
+            self.shields.append((x, y))
 def getLayout(name, back = 2):
     if name.endswith('.lay'):
         layout = tryToLoad('layouts/' + name)
