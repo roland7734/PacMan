@@ -128,6 +128,7 @@ class AgentState:
         self.isPacman = isPacman
         self.scaredTimer = 0
         self.speedBoosterTimer = 0
+        self.freezerTimer = 0
         self.shieldTimer = 0
         self.numCarrying = 0
         self.numReturned = 0
@@ -388,9 +389,12 @@ class GameStateData:
             self._eaten = prevState._eaten
             self.score = prevState.score
             self.speedBoosted = False
+            self.shielded = False
+            self.shielded = False
             self.speedBoostTimer = 0
-            self.speedBoosters=prevState.speedBoosters[:] #it is a list
-            self.shields=prevState.shields[:]
+            # self.freezers = prevState.freezers[:]
+            self.speedBoosters = prevState.speedBoosters[:] #it is a list
+            self.shields = prevState.shields[:]
 
         self._foodEaten = None
         self._foodAdded = None
@@ -398,6 +402,7 @@ class GameStateData:
         self._speedBoosterEaten = None
         self._agentMoved = None
         self._shieldEaten = None
+        self._freezerEaten = None
         self._lose = False
         self._win = False
         self.scoreChange = 0

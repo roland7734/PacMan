@@ -75,6 +75,12 @@ LASER_SIZE = 0.02
 CAPSULE_COLOR = formatColor(1,1,1)
 CAPSULE_SIZE = 0.25
 
+FREEZER_COLOR = formatColor(0,1,1)
+FREEZER_SIZE = 0.25
+
+SHIELD_COLOR = formatColor(0,0,1)
+SHIELD_SIZE = 0.25
+
 # Drawing walls
 WALL_RADIUS = 0.15
 
@@ -205,8 +211,14 @@ class PacmanGraphics:
         self.drawWalls(layout.walls)
         self.food = self.drawFood(layout.food)
         self.capsules = self.drawCapsules(layout.capsules)
+        self.drawTunnel(layout.blueTunnel, GHOST_COLORS[1])
+        self.drawTunnel(layout.greenTunnel, GHOST_COLORS[3])
         self.speedBoosters = self.drawSpeedBooster(layout.speedBoosters)
         self.shields = self.drawShield(layout.shields)
+        self.freezers = self.drawFreezer(layout.freezers)
+        # self.blueTunnel = self.drawTunnel(layout.blueTunnel, GHOST_COLORS[1])
+        # self.greenTunnel = self.drawTunnel(layout.greenTunnel, GHOST_COLORS[3])
+        # self.drawTunnel(layout.blueTunnel, '#00f')
         refresh()
 
     def drawAgentObjects(self, state):
@@ -254,6 +266,8 @@ class PacmanGraphics:
             self.removeBooster(newState._speedBoosterEaten, self.speedBoosters)
         if newState._shieldEaten != None:
             self.removeShield(newState._shieldEaten, self.shields)
+        if newState._freezerEaten != None:
+            self.removeFreezer(newState._freezerEaten, self.freezers)
         self.infoPane.updateScore(newState.score)
         if 'ghostDistances' in dir(newState):
             self.infoPane.updateGhostDistances(newState.ghostDistances)
@@ -560,10 +574,8 @@ class PacmanGraphics:
             for yNum, cell in enumerate(x):
                 if cell:  # There's a speed booster here
                     screenPosition = self.to_screen((xNum, yNum))
-
                     # Add a slight dynamic motion for the speed booster
                     offset_x, offset_y = self.get_dynamic_offset()
-
                     # Draw the speed booster image
                     booster = image((screenPosition[0] + offset_x, screenPosition[1] + offset_y),
                                          file="speedBooster.gif")
@@ -577,7 +589,6 @@ class PacmanGraphics:
         offset_x = math.sin(tkinter._default_root.winfo_fpixels("1m") / 100) * 5  # Small oscillation
         offset_y = math.cos(tkinter._default_root.winfo_fpixels("1m") / 100) * 5
         return offset_x, offset_y
-
     def drawCapsules(self, capsules ):
         capsuleImages = {}
         for capsule in capsules:
@@ -592,16 +603,55 @@ class PacmanGraphics:
         return capsuleImages
 
     def drawTunnel(self, tunnels, color):
-        capsuleImages = {}
+        tunnelImages = {}
         for tunnel in tunnels:
             ( screen_x, screen_y ) = self.to_screen(tunnel)
-            dot = circle( (screen_x, screen_y),
-                              CAPSULE_SIZE * self.gridSize,
-                              outlineColor = CAPSULE_COLOR,
-                              fillColor = CAPSULE_COLOR,
-                              width = 1)
-            capsuleImages[tunnel] = dot
-        return capsuleImages
+
+
+            for layer_count in range(LAYER_COUNT):
+
+            # dot = circle((screen_x,screen_y), CAPSULE_SIZE * self.gridSize, outlineColor=color, fillColor=color, width=1)
+                create_portal_layer(screen_x, screen_y, 10, color, layer_count)
+            # create_shield((100, 100), 50, outer_rim_color="darkgrey", inner_body_color="brown", boss_color="silver")
+
+            # tunnelImages[tunnel] = dot
+
+        # return tunnelImages
+
+    def drawFreezer(self, freezers):
+        freezerImages = {}
+        for freezer in freezers:
+            (screen_x, screen_y) = self.to_screen(freezer)
+            dot = circle((screen_x, screen_y),
+                         FREEZER_SIZE * self.gridSize,
+                         outlineColor=FREEZER_COLOR,
+                         fillColor=FREEZER_COLOR,
+                         width=1)
+            freezerImages[freezer] = dot
+        return freezerImages
+    def removeFreezer(self, cell, freezerImages):
+        x, y = cell
+        remove_from_screen(freezerImages[(x, y)])
+    def drawShield(self, shields):
+        shieldImages = {}
+        for shield in shields:
+            (screen_x, screen_y) = self.to_screen(shield)
+            dot = circle((screen_x, screen_y),
+                         SHIELD_SIZE * self.gridSize,
+                         outlineColor=SHIELD_COLOR,
+                         fillColor=SHIELD_COLOR,
+                         width=1)
+            shieldImages[shield] = dot
+        return shieldImages
+
+    def removeShield(self, cell, shieldImages):
+        x, y = cell
+        remove_from_screen(shieldImages[(x, y)])
+
+    def removeBooster(self, cell, speedBoosterImages):
+        x, y = cell
+        remove_from_screen(speedBoosterImages[x][y])
+
 
     def drawShield(self, shields):
         pass   ###needs implementation

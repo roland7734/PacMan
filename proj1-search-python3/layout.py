@@ -30,10 +30,17 @@ class Layout:
     shields = []
     def __init__(self, layoutText):
         self.width = len(layoutText[0])
-        self.height= len(layoutText)
-        self.walls = Grid(self.width, self.height, False)
-        self.food = Grid(self.width, self.height, False)
+        self.height = len(layoutText)
+        # self.walls = Grid()
+        # self.food = Grid()
+        self.walls = Grid(self.width, self.height, initialValue=False)
+        self.food = Grid(self.width, self.height, initialValue=False)
         self.capsules = []
+        self.blueTunnel = []
+        self.greenTunnel = []
+        self.speedBoosters = []
+        self.freezers = []
+        self.shields = []
         self.agentPositions = []
         self.numGhosts = 0
         self.processLayoutText(layoutText)
@@ -139,9 +146,13 @@ class Layout:
         elif layoutChar == 'Y':
             self.greenTunnel.append((x,y))
         elif layoutChar == 'B':
-            self.speedBoosters.append((x, y))
+            self.speedBoosters.append((x,y))
         elif layoutChar == 'S':
-            self.shields.append((x, y))
+            self.shields.append((x,y))
+        elif layoutChar == 'F':
+            self.freezers.append((x,y))
+
+
 def getLayout(name, back = 2):
     if name.endswith('.lay'):
         layout = tryToLoad('layouts/' + name)
