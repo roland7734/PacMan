@@ -105,7 +105,7 @@ class GameState:
         # Let agent's logic deal with its action's effects on the board
         if agentIndex == 0:  # Pacman is moving
             state.data._eaten = [False for i in range(state.getNumAgents())]
-            PacmanRules.applyAction( state, action )
+            state.data._agentTeleported= PacmanRules.applyAction( state, action )
         else:                # A ghost is moving
             GhostRules.applyAction( state, action, agentIndex )
 
@@ -114,9 +114,10 @@ class GameState:
             state.data.scoreChange += -TIME_PENALTY # Penalty for waiting around
             PacmanRules.decrementSpeedBoosterTimer(state.data.agentStates[0])
             PacmanRules.decrementShieldTimer(state.data.agentStates[0])
-            PacmanRules.decrementFreezerTimer(state.data.agentStates[0])
+
         else:
             GhostRules.decrementTimer( state.data.agentStates[agentIndex] )
+            GhostRules.decrementFreezerTimer(state.data.agentStates[agentIndex])
 
         # Resolve multi-agent effects
         GhostRules.checkDeath( state, agentIndex )
@@ -145,6 +146,9 @@ class GameState:
         state.direction gives the travel vector
         """
         return self.data.agentStates[0].copy()
+
+    def isShielded(self):
+        return self.data.agentStates[0].shieldTimer>0
 
     def getPacmanPosition( self ):
         return self.data.agentStates[0].getPosition()
@@ -179,15 +183,12 @@ class GameState:
     def getSpeedBoosters(self):
         return self.data.speedBoosters
 
-    def getSpeedBoosters(self):
-        return self.data.speedBoosters
-
     def getShields(self):
         return self.data.shields
 
+
     def getFreezers(self):
-        # return self.data.freezers
-        return []
+        return self.data.freezers
 
     def getNumFood( self ):
         return self.data.food.count()
@@ -215,6 +216,10 @@ class GameState:
         if walls[x][y] == True: ...
         """
         return self.data.layout.walls
+    def getBlueTunnels(self):
+        return self.data.layout.blueTunnel
+    def getGreenTunnels(self):
+        return self.data.layout.greenTunnel
 
     def hasFood(self, x, y):
         return self.data.food[x][y]
@@ -268,6 +273,8 @@ class GameState:
         Creates an initial game state from a layout array (see layout.py).
         """
         self.data.initialize(layout, numGhostAgents)
+    def changeTimePenalty(pacmanState):
+        GameState.TIME_PENALTY = [0.33 if pacmanState.speedBoosterTimer > 0 else 1]
 
 ############################################################################
 #                     THE HIDDEN SECRETS OF PACMAN                         #
@@ -338,69 +345,72 @@ class ClassicGameRules:
     def getMaxTimeWarnings(self, agentIndex):
         return 0
 
+
 class PacmanRules:
     """
     These functions govern how pacman interacts with his environment under
     the classic game rules.
     """
-    PACMAN_SPEED=1
-
-    def increaseSpeed(self):
-        PACMAN_SPEED = 3
-
-    def decreaseSpeed(self):
-        PACMAN_SPEED = 1
+    PACMAN_SPEED = 1.0
+    BOOSTED_PACMAN_SPEED = 3.0
+    # def increaseSpeed(state):
+    #     state.PACMAN_SPEED = PacmanRules.BOOSTED_PACMAN_SPEED
+    #
+    # def decreaseSpeed(state):
+    #     state.PACMAN_SPEED = PacmanRules.DEFAULT_PACMAN_SPEED
 
     def getLegalActions( state ):
         """
         Returns a list of possible actions.
         """
-        return Actions.getPossibleActions( state.getPacmanState().configuration, state.data.layout.walls )
+        return Actions.getPossibleActions( state.getPacmanState().configuration, state)
     getLegalActions = staticmethod( getLegalActions )
 
     def applyAction( state, action ):
         """
         Edits the state to reflect the results of the action.
         """
-        legal = PacmanRules.getLegalActions( state )
+        legal = PacmanRules.getLegalActions(state)
         if action not in legal:
             raise Exception("Illegal action " + str(action))
 
         pacmanState = state.data.agentStates[0]
 
+        # if pacmanState.speedBoosterTimer>0: PacmanRules.increaseSpeed(pacmanState)
+        # else: PacmanRules.decreaseSpeed(pacmanState)
         # Update Configuration
-        vector = Actions.directionToVector( action, PacmanRules.PACMAN_SPEED )
-        pacmanState.configuration = pacmanState.configuration.generateSuccessor( vector )
 
-        # Eat
-        next = pacmanState.configuration.getPosition()
-        nearest = nearestPoint( next )
-        if manhattanDistance( nearest, next ) <= 0.5 :
-            # Remove food
-            PacmanRules.consume( nearest, state )
+        GameState.changeTimePenalty(pacmanState)
+        vector = Actions.directionToVector(action, PacmanRules.PACMAN_SPEED)
+        for _ in range(3 if pacmanState.speedBoosterTimer > 0 else 1):
+
+            pacmanState.configuration = pacmanState.configuration.generateSuccessor(vector,state)
+
+
+            # Eat
+            next = pacmanState.configuration.getPosition()
+            nearest = nearestPoint(next)
+            if manhattanDistance(nearest, next) <= 0.5:
+                # Remove food
+                PacmanRules.consume(nearest, state)
+                GhostRules.checkDeath(state, 0)
+        return state.data._agentTeleported
     applyAction = staticmethod( applyAction )
 
     def decrementSpeedBoosterTimer(pacmanState):
         timer = pacmanState.speedBoosterTimer
         # if timer == 1:
         #     pacmanState.configuration.pos = nearestPoint(pacmanState.configuration.pos)
-        pacmanState.speedBoosterTimer = max(0, timer - 1)
-
+        pacmanState.speedBoosterTimer = max(0, timer - TIME_PENALTY)
     decrementSpeedBoosterTimer = staticmethod(decrementSpeedBoosterTimer)
 
     def decrementShieldTimer(pacmanState):
         timer = pacmanState.shieldTimer
         # if timer == 1:
         #     pacmanState.configuration.pos = nearestPoint( ghostState.configuration.pos )
-        pacmanState.shieldTimer = max(0, timer - 1)
-
+        pacmanState.shieldTimer = max(0, timer - TIME_PENALTY)
     decrementShieldTimer = staticmethod(decrementShieldTimer)
 
-    def decrementFreezerTimer(pacmanState):
-        timer = pacmanState.freezerTimer
-        pacmanState.freezerTimer = max(0, timer - 1)
-
-    decrementFreezerTimer = staticmethod(decrementFreezerTimer)
 
     def consume(position, state,):
         x,y = position
@@ -424,19 +434,24 @@ class PacmanRules:
                 state.data.agentStates[index].scaredTimer = SCARED_TIME
         # Eat speedBooster
         if position in state.getSpeedBoosters():
-            state.data.speedBoosted = True
-            state.data.speedBoostTimer = SPEED_BOOST_TIME
             state.data.speedBoosters.remove(position)
+            state.data._speedBoosterEaten = position
+            state.data.speedBoosted = True
+            state.data.agentStates[0].speedBoosterTimer = SPEED_BOOST_TIME
+
         # Eat shield
         if position in state.getShields():
-            state.data.shielded = True
-            state.data.shieldTimer = SHIELD_TIME
             state.data.shields.remove(position)
+            state.data._shieldEaten = position
+            state.data.shielded = True
+            state.data.agentStates[0].shieldTimer = SHIELD_TIME
         #Eat freezer
         if position in state.getFreezers():
-            state.data.freezed = True
-            state.data.freezerTimer = FREEZER_TIME
             state.data.freezers.remove(position)
+            state.data._freezerEaten = position
+            state.data.frozen = True
+            for index in range( 1, len( state.data.agentStates ) ):
+                state.data.agentStates[index].freezerTimer = FREEZER_TIME
     consume = staticmethod( consume )
 
 
@@ -451,7 +466,7 @@ class GhostRules:
         reach a dead end, but can turn 90 degrees at intersections.
         """
         conf = state.getGhostState( ghostIndex ).configuration
-        possibleActions = Actions.getPossibleActions( conf, state.data.layout.walls )
+        possibleActions = Actions.getPossibleActions( conf, state )
         reverse = Actions.reverseDirection( conf.direction )
         if Directions.STOP in possibleActions:
             possibleActions.remove( Directions.STOP )
@@ -462,24 +477,29 @@ class GhostRules:
 
     def applyAction( state, action, ghostIndex):
 
-        legal = GhostRules.getLegalActions( state, ghostIndex )
+        legal = GhostRules.getLegalActions(state, ghostIndex)
         if action not in legal:
             raise Exception("Illegal ghost action " + str(action))
 
         ghostState = state.data.agentStates[ghostIndex]
         speed = GhostRules.GHOST_SPEED
         if ghostState.scaredTimer > 0: speed /= 2.0
-        vector = Actions.directionToVector( action, speed )
-        ghostState.configuration = ghostState.configuration.generateSuccessor( vector )
+        if ghostState.freezerTimer > 0: speed = 0
+        vector = Actions.directionToVector(action, speed)
+        ghostState.configuration = ghostState.configuration.generateSuccessor(vector,state)
     applyAction = staticmethod( applyAction )
 
     def decrementTimer( ghostState):
         timer = ghostState.scaredTimer
         if timer == 1:
             ghostState.configuration.pos = nearestPoint( ghostState.configuration.pos )
-        ghostState.scaredTimer = max( 0, timer - 1 )
+        ghostState.scaredTimer = max( 0, timer - TIME_PENALTY )
     decrementTimer = staticmethod( decrementTimer )
 
+    def decrementFreezerTimer(ghostState):
+        timer = ghostState.freezerTimer
+        ghostState.freezerTimer = max(0, timer - TIME_PENALTY)
+    decrementFreezerTimer = staticmethod(decrementFreezerTimer)
 
     def checkDeath( state, agentIndex):
         pacmanPosition = state.getPacmanPosition()
@@ -501,10 +521,11 @@ class GhostRules:
             state.data.scoreChange += 200
             GhostRules.placeGhost(state, ghostState)
             ghostState.scaredTimer = 0
+            ghostState.freezerTimer = 0
             # Added for first-person
             state.data._eaten[agentIndex] = True
         else:
-            if not state.data._win:
+            if not state.data._win and state.isShielded()==False and ghostState.freezerTimer==0:
                 state.data.scoreChange -= 500
                 state.data._lose = True
     collide = staticmethod( collide )
@@ -680,7 +701,7 @@ def replayGame( layout, actions, display ):
 
     for action in actions:
             # Execute the action
-        state = state.generateSuccessor( *action )
+        state = state.generateSuccessor( *action,state )
         # Change the display
         display.update( state.data )
         # Allow for game specific conditions (winning, losing, etc.)

@@ -153,6 +153,8 @@ class PositionSearchProblem(search.SearchProblem):
         goal: A position in the gameState
         """
         self.walls = gameState.getWalls()
+        self.blueTunnels = gameState.getBlueTunnels()
+        self.greenTunnels= gameState.getGreenTunnels()
         self.startState = gameState.getPacmanPosition()
         if start != None: self.startState = start
         self.goal = goal
@@ -199,8 +201,15 @@ class PositionSearchProblem(search.SearchProblem):
             nextx, nexty = int(x + dx), int(y + dy)
             if not self.walls[nextx][nexty]:
                 nextState = (nextx, nexty)
-                cost = self.costFn(nextState)
-                successors.append( ( nextState, action, cost) )
+            elif (nextx,nexty)!=(x,y):
+                next_pos=(nextx,nexty)
+                if next_pos in self.blueTunnels:
+                    nextState = [p for p in self.blueTunnels if p != next_pos][0]
+                elif next_pos in self.greenTunnels:
+                    nextState = [p for p in self.greenTunnels if p != next_pos][0]
+
+            cost = self.costFn(nextState)
+            successors.append( ( nextState, action, cost) )
 
         # Bookkeeping for display purposes
         self._expanded += 1 # DO NOT CHANGE

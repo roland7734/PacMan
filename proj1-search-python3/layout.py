@@ -24,10 +24,7 @@ class Layout:
     """
     A Layout manages the static information about the game board.
     """
-    blueTunnel = []
-    greenTunnel = []
-    speedBoosters = []
-    shields = []
+
     def __init__(self, layoutText):
         self.width = len(layoutText[0])
         self.height = len(layoutText)

@@ -102,7 +102,7 @@ class Configuration:
     def __str__(self):
         return "(x,y)="+str(self.pos)+", "+str(self.direction)
 
-    def generateSuccessor(self, vector):
+    def generateSuccessor(self, vector,state):
         """
         Generates a new configuration reached by translating the current
         configuration by the action vector.  This is a low-level call and does
@@ -110,12 +110,31 @@ class Configuration:
 
         Actions are movement vectors.
         """
+
+        blueTunnel=state.data.layout.blueTunnel
+        greenTunnel=state.data.layout.greenTunnel
         x, y= self.pos
         dx, dy = vector
         direction = Actions.vectorToDirection(vector)
         if direction == Directions.STOP:
             direction = self.direction # There is no stop direction
-        return Configuration((x + dx, y+dy), direction)
+        next_pos=(x + dx, y+dy)
+        if next_pos!=self.pos:
+            if next_pos in blueTunnel:
+                # Get the other blue tunnel exit
+                other_blue_tunnel = [p for p in blueTunnel if p != next_pos][0]
+
+                # Teleport Pacman to the new blue tunnel position
+                state.data._agentTeleported= True
+                return Configuration(other_blue_tunnel,direction)
+            elif next_pos in greenTunnel:
+                # Get the other blue tunnel exit
+                other_green_tunnel = [p for p in greenTunnel if p != next_pos][0]
+
+                # Teleport Pacman to the new blue tunnel position
+                state.data._agentTeleported = True
+                return Configuration(other_green_tunnel, direction)
+        return Configuration(next_pos, direction)
 
 class AgentState:
     """
@@ -142,7 +161,7 @@ class AgentState:
     def __eq__( self, other ):
         if other == None:
             return False
-        return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer
+        return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer and self.freezerTimer== other.freezerTimer and self.shieldTimer == other.shieldTimer and self.speedBoosterTimer== other.speedBoosterTimer
 
     def __hash__(self):
         return hash(hash(self.configuration) + 13 * hash(self.scaredTimer)+31*hash(self.speedBoosterTimer)+7*hash(self.shieldTimer))
@@ -153,6 +172,7 @@ class AgentState:
         state.scaredTimer = self.scaredTimer
         state.speedBoosterTimer = self.speedBoosterTimer
         state.shieldTimer = self.shieldTimer
+        state.freezerTimer = self.freezerTimer
         state.numCarrying = self.numCarrying
         state.numReturned = self.numReturned
         return state
@@ -329,25 +349,34 @@ class Actions:
         return Directions.STOP
     vectorToDirection = staticmethod(vectorToDirection)
 
-    def directionToVector(direction, speed = 1.0):
+    def directionToVector(direction, speed = 1.0) -> object:
+
         dx, dy =  Actions._directions[direction]
         return (dx * speed, dy * speed)
     directionToVector = staticmethod(directionToVector)
 
-    def getPossibleActions(config, walls):
+    def getPossibleActions(config, state):
+        """
+        Returns a list of possible actions
+        """
+        # Retrieve walls and portals (blueTunnel, greenTunnel)
+        walls = state.data.layout.walls
         possible = []
+
+        # Get current position of the agent
         x, y = config.pos
         x_int, y_int = int(x + 0.5), int(y + 0.5)
 
         # In between grid points, all agents must continue straight
-        if (abs(x - x_int) + abs(y - y_int)  > Actions.TOLERANCE):
+        if abs(x - x_int) + abs(y - y_int) > Actions.TOLERANCE:
             return [config.getDirection()]
 
         for dir, vec in Actions._directionsAsList:
             dx, dy = vec
-            next_y = y_int + dy
             next_x = x_int + dx
-            if not walls[next_x][next_y]: possible.append(dir)
+            next_y = y_int + dy
+            if not walls[next_x][next_y]:
+                possible.append(dir)
 
         return possible
 
@@ -390,17 +419,18 @@ class GameStateData:
             self.score = prevState.score
             self.speedBoosted = False
             self.shielded = False
-            self.shielded = False
-            self.speedBoostTimer = 0
+            self.frozen = False
             # self.freezers = prevState.freezers[:]
             self.speedBoosters = prevState.speedBoosters[:] #it is a list
             self.shields = prevState.shields[:]
+            self.freezers = prevState.freezers[:]
 
         self._foodEaten = None
         self._foodAdded = None
         self._capsuleEaten = None
         self._speedBoosterEaten = None
         self._agentMoved = None
+        self._agentTeleported = None
         self._shieldEaten = None
         self._freezerEaten = None
         self._lose = False
@@ -412,11 +442,13 @@ class GameStateData:
         state.food = self.food.deepCopy()
         state.layout = self.layout.deepCopy()
         state._agentMoved = self._agentMoved
+        state._agentTeleported = self._agentTeleported
         state._foodEaten = self._foodEaten
         state._foodAdded = self._foodAdded
         state._capsuleEaten = self._capsuleEaten
         state._shieldEaten = self._shieldEaten
         state._speedBoosterEaten = self._speedBoosterEaten
+        state._freezerEaten = self._freezerEaten
         return state
 
     def copyAgentStates( self, agentStates ):
@@ -436,6 +468,7 @@ class GameStateData:
         if not self.capsules == other.capsules: return False
         if not self.score == other.score: return False
         if not self.speedBoosters == other.speedBoosters: return False
+        if not self.freezers == other.freezers: return False
         if not self.shields == other.shields: return False
         return True
 
@@ -450,7 +483,7 @@ class GameStateData:
                 print(e)
                 #hash(state)
         return int((hash(tuple(self.agentStates)) + 13*hash(self.food) + 113* hash(tuple(self.capsules)) + 7 * hash(self.score)+
-                    31*hash(tuple(self.speedBoosters)) + 41* hash(tuple(self.shields)) )% 1048575 )
+                    31*hash(tuple(self.speedBoosters)) + 41* hash(tuple(self.shields))+ 97* hash(tuple(self.freezers)) )% 1048575 )
 
     def __str__( self ):
         width, height = self.layout.width, self.layout.height
@@ -478,6 +511,8 @@ class GameStateData:
             map[x][y] = 'B'
         for x,y in self.shields:
             map[x][y] = 'S'
+        for x, y in self.freezers:
+            map[x][y] = 'F'
 
         return str(map) + ("\nScore: %d\n" % self.score)
 
@@ -517,6 +552,7 @@ class GameStateData:
         self.capsules = layout.capsules[:]
         self.speedBoosters = layout.speedBoosters[:]
         self.shields = layout.shields[:]
+        self.freezers = layout.freezers[:]
         self.layout = layout
         self.score = 0
         self.scoreChange = 0
@@ -716,7 +752,7 @@ class Game:
             self.moveHistory.append( (agentIndex, action) )
             if self.catchExceptions:
                 try:
-                    self.state = self.state.generateSuccessor( agentIndex, action )
+                    self.state = self.state.generateSuccessor( agentIndex, action)
                 except Exception as data:
                     self.mute(agentIndex)
                     self._agentCrash(agentIndex)

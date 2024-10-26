@@ -10,10 +10,13 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
+import graphicsUtils
 from graphicsUtils import *
 import math, time
 from game import Directions
+from tkinter import Tk, Canvas, PhotoImage
+from PIL import Image, ImageTk
+
 
 ###########################
 #  GRAPHICS DISPLAY CODE  #
@@ -60,6 +63,8 @@ SCARED_COLOR = formatColor(1,1,1)
 GHOST_VEC_COLORS = [colorToVector(c) for c in GHOST_COLORS]
 
 PACMAN_COLOR = formatColor(255.0/255.0,255.0/255.0,61.0/255)
+SHIELDED_COLOR = formatColor(255.0/255,255.0/255,153.0/255)
+SPEED_BOOST_COLOR = formatColor(255/255.0,83/255.0,73/255.0)
 PACMAN_SCALE = 0.5
 #pacman_speed = 0.25
 
@@ -76,10 +81,13 @@ CAPSULE_COLOR = formatColor(1,1,1)
 CAPSULE_SIZE = 0.25
 
 FREEZER_COLOR = formatColor(0,1,1)
-FREEZER_SIZE = 0.25
+FREEZER_SIZE = 1.0
 
-SHIELD_COLOR = formatColor(0,0,1)
-SHIELD_SIZE = 0.25
+SHIELD_COLOR = formatColor(0,0.32,1)
+SHIELD_SIZE = 1.0
+
+SPEED_BOOSTER_COLOR = formatColor(1,0.63,1)
+SPEED_BOOSTER_SIZE = 1.0
 
 # Drawing walls
 WALL_RADIUS = 0.15
@@ -167,6 +175,9 @@ class PacmanGraphics:
         self.capture = capture
         self.frameTime = frameTime
 
+
+
+
     def checkNullDisplay(self):
         return False
 
@@ -190,6 +201,14 @@ class PacmanGraphics:
         self.make_window(self.width, self.height)
         self.infoPane = InfoPane(layout, self.gridSize)
         self.currentState = layout
+        self.shield_photo = self.createImage("Images/Shield.png", SHIELD_SIZE)
+        self.booster_photo = self.createImage("Images/SpeedBooster.png", SPEED_BOOSTER_SIZE)
+        self.freezer_photo = self.createImage("Images/Freeze.png", FREEZER_SIZE)
+
+    def createImage(self,image,size):
+        original_image = Image.open(image)
+        resized_image = original_image.resize((int(size * self.gridSize), int(size * self.gridSize)))
+        return ImageTk.PhotoImage(resized_image)
 
     def drawDistributions(self, state):
         walls = state.layout.walls
@@ -247,13 +266,15 @@ class PacmanGraphics:
         refresh()
 
     def update(self, newState):
+
         agentIndex = newState._agentMoved
+        agentTeleported = newState._agentTeleported
         agentState = newState.agentStates[agentIndex]
 
         if self.agentImages[agentIndex][0].isPacman != agentState.isPacman: self.swapImages(agentIndex, agentState)
         prevState, prevImage = self.agentImages[agentIndex]
         if agentState.isPacman:
-            self.animatePacman(agentState, prevState, prevImage)
+            self.animatePacman(agentState, prevState, prevImage,agentTeleported)
         else:
             self.moveGhost(agentState, agentIndex, prevState, prevImage)
         self.agentImages[agentIndex] = (agentState, prevImage)
@@ -290,7 +311,7 @@ class PacmanGraphics:
 
         width = PACMAN_OUTLINE_WIDTH
         outlineColor = PACMAN_COLOR
-        fillColor = PACMAN_COLOR
+        fillColor = self.getPacmanColor(pacman)
 
         if self.capture:
             outlineColor = TEAM_COLORS[index % 2]
@@ -318,31 +339,35 @@ class PacmanGraphics:
             endpoints = (0+delta, 0-delta)
         return endpoints
 
-    def movePacman(self, position, direction, image):
+    def movePacman(self, position, pacman, image):
         screenPosition = self.to_screen(position)
+        direction = self.getDirection(pacman)
         endpoints = self.getEndpoints( direction, position )
         r = PACMAN_SCALE * self.gridSize
+        color=self.getPacmanColor(pacman)
+        edit(image[0], ('fill', color), ('outline', color))
         moveCircle(image[0], screenPosition, r, endpoints)
         refresh()
 
-    def animatePacman(self, pacman, prevPacman, image):
+    def animatePacman(self, pacman, prevPacman, image,didTeleport):
+
         if self.frameTime < 0:
             print('Press any key to step forward, "q" to play')
             keys = wait_for_keys()
             if 'q' in keys:
                 self.frameTime = 0.1
-        if self.frameTime > 0.01 or self.frameTime < 0:
+        if (self.frameTime > 0.01 or self.frameTime < 0) and not didTeleport:
             start = time.time()
             fx, fy = self.getPosition(prevPacman)
             px, py = self.getPosition(pacman)
             frames = 4.0
             for i in range(1,int(frames) + 1):
                 pos = px*i/frames + fx*(frames-i)/frames, py*i/frames + fy*(frames-i)/frames
-                self.movePacman(pos, self.getDirection(pacman), image)
+                self.movePacman(pos, pacman, image)
                 refresh()
                 sleep(abs(self.frameTime) / frames)
         else:
-            self.movePacman(self.getPosition(pacman), self.getDirection(pacman), image)
+            self.movePacman(self.getPosition(pacman), pacman, image)
         refresh()
 
     def getGhostColor(self, ghost, ghostIndex):
@@ -350,6 +375,13 @@ class PacmanGraphics:
             return SCARED_COLOR
         else:
             return GHOST_COLORS[ghostIndex]
+
+    def getPacmanColor(self, pacman):
+        if pacman.speedBoosterTimer > 0:
+            return SPEED_BOOST_COLOR
+        if pacman.shieldTimer > 0:
+            return SHIELDED_COLOR
+        return PACMAN_COLOR
 
     def drawGhost(self, ghost, agentIndex):
         pos = self.getPosition(ghost)
@@ -562,27 +594,47 @@ class PacmanGraphics:
                     imageRow.append(None)
         return foodImages
 
-    def drawSpeedBooster(self, speedBoosterImages):
-        """
-        Draws the speed boosters on the grid and makes them disappear when Pac-Man eats them.
-        The booster also moves slowly within its own cell to create a dynamic effect.
-        """
-        speedBoosters = []
-        for xNum, x in enumerate(speedBoosterImages):
-            imageRow = []
-            speedBoosters.append(imageRow)
-            for yNum, cell in enumerate(x):
-                if cell:  # There's a speed booster here
-                    screenPosition = self.to_screen((xNum, yNum))
-                    # Add a slight dynamic motion for the speed booster
-                    offset_x, offset_y = self.get_dynamic_offset()
-                    # Draw the speed booster image
-                    booster = image((screenPosition[0] + offset_x, screenPosition[1] + offset_y),
-                                         file="speedBooster.gif")
-                    imageRow.append(booster)
-                else:
-                    imageRow.append(None)
-        return speedBoosters
+    # def drawSpeedBooster(self, speedBoosterImages):
+    #     """
+    #     Draws the speed boosters on the grid and makes them disappear when Pac-Man eats them.
+    #     The booster also moves slowly within its own cell to create a dynamic effect.
+    #     """
+    #     speedBoosters = []
+    #     for xNum, x in enumerate(speedBoosterImages):
+    #         imageRow = []
+    #         speedBoosters.append(imageRow)
+    #         for yNum, cell in enumerate(x):
+    #             if cell:  # There's a speed booster here
+    #                 screenPosition = self.to_screen((xNum, yNum))
+    #                 # Add a slight dynamic motion for the speed booster
+    #                 offset_x, offset_y = self.get_dynamic_offset()
+    #                 # Draw the speed booster image
+    #                 booster = image((screenPosition[0] + offset_x, screenPosition[1] + offset_y),
+    #                                      file="speedBooster.gif")
+    #                 imageRow.append(booster)
+    #             else:
+    #                 imageRow.append(None)
+    #     return speedBoosters
+
+    def drawFreezer(self, freezers):
+        freezerImages = {}
+        for freezer in freezers:
+            (screen_x, screen_y) = self.to_screen(freezer)
+
+            image_id = graphicsUtils._canvas.create_image(screen_x, screen_y, image=self.freezer_photo)
+
+            freezerImages[freezer] = image_id
+        return freezerImages
+
+    def drawSpeedBooster(self, speedBoosters):
+        speedBoosterImages = {}
+        for speedBooster in speedBoosters:
+            (screen_x, screen_y) = self.to_screen(speedBooster)
+
+            image_id = graphicsUtils._canvas.create_image(screen_x, screen_y, image=self.booster_photo)
+
+            speedBoosterImages[speedBooster] = image_id
+        return speedBoosterImages
 
     def get_dynamic_offset(self):
         """Get a small offset for the dynamic motion within the grid cell."""
@@ -618,30 +670,22 @@ class PacmanGraphics:
 
         # return tunnelImages
 
-    def drawFreezer(self, freezers):
-        freezerImages = {}
-        for freezer in freezers:
-            (screen_x, screen_y) = self.to_screen(freezer)
-            dot = circle((screen_x, screen_y),
-                         FREEZER_SIZE * self.gridSize,
-                         outlineColor=FREEZER_COLOR,
-                         fillColor=FREEZER_COLOR,
-                         width=1)
-            freezerImages[freezer] = dot
-        return freezerImages
+
     def removeFreezer(self, cell, freezerImages):
         x, y = cell
         remove_from_screen(freezerImages[(x, y)])
+
     def drawShield(self, shields):
         shieldImages = {}
         for shield in shields:
+            # Calculate the screen position for each shield
             (screen_x, screen_y) = self.to_screen(shield)
-            dot = circle((screen_x, screen_y),
-                         SHIELD_SIZE * self.gridSize,
-                         outlineColor=SHIELD_COLOR,
-                         fillColor=SHIELD_COLOR,
-                         width=1)
-            shieldImages[shield] = dot
+
+            # Create the image on the canvas at the calculated position
+            image_id = graphicsUtils._canvas.create_image(screen_x, screen_y, image=self.shield_photo)
+
+            # Store the image ID in the dictionary to track each shield individually
+            shieldImages[shield] = image_id
         return shieldImages
 
     def removeShield(self, cell, shieldImages):
@@ -650,15 +694,7 @@ class PacmanGraphics:
 
     def removeBooster(self, cell, speedBoosterImages):
         x, y = cell
-        remove_from_screen(speedBoosterImages[x][y])
-
-
-    def drawShield(self, shields):
-        pass   ###needs implementation
-
-    def removeShield(self,cell,shieldImages):
-        x, y = cell
-        remove_from_screen(shieldImages[(x, y)])
+        remove_from_screen(speedBoosterImages[(x, y)])
 
     def removeFood(self, cell, foodImages ):
         x, y = cell
@@ -668,9 +704,7 @@ class PacmanGraphics:
         x, y = cell
         remove_from_screen(capsuleImages[(x, y)])
 
-    def removeBooster(self, cell, speedBoosterImages ):
-        x, y = cell
-        remove_from_screen(speedBoosterImages[x][y])
+
 
     def drawExpandedCells(self, cells):
         """

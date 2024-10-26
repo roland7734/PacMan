@@ -55,6 +55,7 @@ class DirectionalGhost( GhostAgent ):
         legalActions = state.getLegalActions( self.index )
         pos = state.getGhostPosition( self.index )
         isScared = ghostState.scaredTimer > 0
+        isFrozen = ghostState.frozenTimer > 0
 
         speed = 1
         if isScared: speed = 0.5
