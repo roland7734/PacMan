@@ -151,31 +151,88 @@ def nullHeuristic(state, problem=None):
     return 0
 
 def aStarSearch(problem, heuristic=nullHeuristic):
-    """Search the node that has the lowest combined cost and heuristic first."""
 
-    priorityQueue = util.PriorityQueue()
-    currentState = problem.getStartState()
+    """
+    Perform Real-Time A* search on the FoodSearchProblem.
+    """
+    startState = problem.getStartState()
+    foodList = problem.getStartState()[1].asList()
+    if not foodList:
+        return []  # No food to collect, return empty action list
 
-    priorityQueue.push((currentState, [], 0), 0 + heuristic(currentState, problem))
+    actions = []
+    currentState = startState
 
+    while True:
+        path = aStarSearchHelper(currentState, problem, heuristic)
+        if not path:
+            break  # No more actions possible
+
+        actions.extend(path)
+        # Update the state after taking the actions
+        for action in path:
+            successors = problem.getSuccessors(currentState)
+            # Update currentState based on the action taken
+            for successor in successors:
+                if successor[1] == action:  # match action
+                    currentState = successor[0]
+                    break
+
+        # Update food list
+        foodList = currentState[1].asList()
+        if not foodList:
+            break  # All food collected
+
+    return actions
+
+def aStarSearchHelper(state, problem, heuristic=nullHeuristic):
+    """
+    Performs the A* search from the current state and returns the path to the goal.
+    """
+    from util import PriorityQueue
     visited = set()
+    queue = PriorityQueue()
+    queue.push((state, []), 0)
 
-    while not priorityQueue.isEmpty():
-        state, path, costUntilNow = priorityQueue.pop()
+    while not queue.isEmpty():
+        currentState, path = queue.pop()
+        if currentState in visited:
+            continue
 
-        if problem.isGoalState(state):
+        visited.add(currentState)
+        if problem.isGoalState(currentState):
             return path
 
-        if state not in visited:
-            visited.add(state)
-
-            for successor, action, stepCost in problem.getSuccessors(state):
-                if successor not in visited:
-                    newCost = costUntilNow + stepCost
-                    priority = newCost + heuristic(successor, problem)
-                    priorityQueue.push((successor, path + [action], newCost), priority)
+        for successor, action, cost in problem.getSuccessors(currentState):
+            newPath = path + [action]
+            priority = len(newPath) + heuristic(successor, problem)
+            queue.push((successor, newPath), priority)
 
     return []
+
+    # priorityQueue = util.PriorityQueue()
+    # currentState = problem.getStartState()
+    #
+    # priorityQueue.push((currentState, [], 0), 0 + heuristic(currentState, problem))
+    #
+    # visited = set()
+    #
+    # while not priorityQueue.isEmpty():
+    #     state, path, costUntilNow = priorityQueue.pop()
+    #
+    #     if problem.isGoalState(state):
+    #         return path
+    #
+    #     if state not in visited:
+    #         visited.add(state)
+    #
+    #         for successor, action, stepCost in problem.getSuccessors(state):
+    #             if successor not in visited:
+    #                 newCost = costUntilNow + stepCost
+    #                 priority = newCost + heuristic(successor, problem)
+    #                 priorityQueue.push((successor, path + [action], newCost), priority)
+    #
+    # return []
 
 def randomSearch(problem):
     """

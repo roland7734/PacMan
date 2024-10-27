@@ -392,6 +392,10 @@ class FoodSearchProblem:
         self.startingGameState = startingGameState
         self._expanded = 0 # DO NOT CHANGE
         self.heuristicInfo = {} # A dictionary for the heuristic to store information
+        self.capsules = startingGameState.getCapsules
+        self.blueTunnels = startingGameState.getBlueTunnels()
+        self.greenTunnels = startingGameState.getGreenTunnels()
+        self.costFn = lambda x: 1
 
     def getStartState(self):
         return self.start
@@ -401,16 +405,46 @@ class FoodSearchProblem:
 
     def getSuccessors(self, state):
         "Returns successor states, the actions they require, and a cost of 1."
+        # successors = []
+        # self._expanded += 1 # DO NOT CHANGE
+        # for direction in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+        #     x,y = state[0]
+        #     dx, dy = Actions.directionToVector(direction)
+        #     nextx, nexty = int(x + dx), int(y + dy)
+        #     if not self.walls[nextx][nexty]:
+        #         nextFood = state[1].copy()
+        #         nextFood[nextx][nexty] = False
+        #         successors.append( ( ((nextx, nexty), nextFood), direction, 1) )
+
         successors = []
-        self._expanded += 1 # DO NOT CHANGE
-        for direction in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
-            x,y = state[0]
-            dx, dy = Actions.directionToVector(direction)
+        position, foodGrid = state
+        x, y = position
+
+        for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+
+            dx, dy = Actions.directionToVector(action)
             nextx, nexty = int(x + dx), int(y + dy)
+
+            nextState = None
+            nextFoodGrid = foodGrid.copy()
+
             if not self.walls[nextx][nexty]:
-                nextFood = state[1].copy()
-                nextFood[nextx][nexty] = False
-                successors.append( ( ((nextx, nexty), nextFood), direction, 1) )
+                nextState = (nextx, nexty)
+                if nextFoodGrid[nextx][nexty]:
+                    nextFoodGrid[nextx][nexty] = False
+
+                next_pos = (nextx, nexty)
+                if next_pos in self.blueTunnels:
+                    nextState = [p for p in self.blueTunnels if p != next_pos][0]
+                elif next_pos in self.greenTunnels:
+                    nextState = [p for p in self.greenTunnels if p != next_pos][0]
+            if nextState is not None:
+                cost = self.costFn(nextState)
+                successors.append(((nextState, nextFoodGrid), action, cost))
+
+        # Bookkeeping for display purposes
+        self._expanded += 1  # DO NOT CHANGE
+
         return successors
 
     def getCostOfActions(self, actions):
@@ -463,7 +497,12 @@ def foodHeuristic(state, problem):
     """
     position, foodGrid = state
     "*** YOUR CODE HERE ***"
-    return 0
+    foodList = foodGrid.asList()
+    if not foodList:
+        return 0
+    # Use the maximum distance to the closest food as a heuristic
+    distances = [util.manhattanDistance(position, food) for food in foodList]
+    return min(distances)
 
 class ClosestDotSearchAgent(SearchAgent):
     "Search for all food using a sequence of searches"
