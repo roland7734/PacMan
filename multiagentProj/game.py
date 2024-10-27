@@ -447,6 +447,7 @@ class GameStateData:
         self._win = False
         self.scoreChange = 0
 
+
     def deepCopy( self ):
         state = GameStateData( self )
         state.food = self.food.deepCopy()

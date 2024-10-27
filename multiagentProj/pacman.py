@@ -72,6 +72,12 @@ class GameState:
     # Accessor methods: use these to access state data #
     ####################################################
 
+    # def __init__(self):
+    #     self.last_positions = []
+    #     self.no_food_steps = 0
+    #     self.previous_food_distance = 0
+
+
     # static variable keeps track of which states have had getLegalActions called
     explored = set()
     def getAndResetExplored():
@@ -150,6 +156,12 @@ class GameState:
     def isShielded(self):
         return self.data.agentStates[0].shieldTimer>0
 
+    def isFrozen(self):
+        return self.data.agentStates[0].freezerTimer>0
+
+    def getIntangible(self):
+        return self.data.intangible
+
     def getPacmanPosition( self ):
         return self.data.agentStates[0].getPosition()
 
@@ -174,6 +186,38 @@ class GameState:
 
     def getScore( self ):
         return float(self.data.score)
+
+    def getShields(self):
+        return self.data.shields
+
+    def isShieldEaten(self):
+        return self.data._shieldEaten
+
+    def isFreezerEaten(self):
+        return self.data._freezerEaten
+
+    def getFreezers(self):
+        return self.data.freezers
+
+    def getIntangibleObJ(self):
+        return self.data.intangibleObj
+
+    def betterEvaluationFunction(self, gameState):
+        """
+          Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
+          evaluation function (question 5).
+
+          DESCRIPTION: <write something here so we know what you did>
+        """
+        "*** YOUR CODE HERE ***"
+
+        """
+        An evaluation function that considers:
+        - Food distance and amount
+        - Proximity to power-ups (shields, freezers, intangible objects)
+        - Ghost proximity and state (shielded/frozen or intangible)
+        """
+        return 0
 
     def getCapsules(self):
         """
@@ -389,6 +433,7 @@ class PacmanRules:
             # Remove food
             PacmanRules.consume(nearest, state)
             GhostRules.checkDeath(state, 0)
+
         return state.data._agentTeleported
     applyAction = staticmethod( applyAction )
 
@@ -411,6 +456,8 @@ class PacmanRules:
         x,y = position
         # Eat food
         if state.data.food[x][y]:
+            if state.data.shielded or state.data.frozen:
+                state.data.scoreChange += 10
             state.data.scoreChange += 10
             state.data.food = state.data.food.copy()
             state.data.food[x][y] = False
@@ -436,12 +483,14 @@ class PacmanRules:
 
         # Eat shield
         if position in state.getShields():
+            state.data.scoreChange += 50
             state.data.shields.remove(position)
             state.data._shieldEaten = position
             state.data.shielded = True
             state.data.agentStates[0].shieldTimer = SHIELD_TIME
         #Eat freezer
         if position in state.getFreezers():
+            state.data.scoreChange += 50
             state.data.freezers.remove(position)
             state.data._freezerEaten = position
             state.data.frozen = True

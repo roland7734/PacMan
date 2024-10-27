@@ -29,6 +29,8 @@ class ReflexAgent(Agent):
     """
 
 
+
+
     def getAction(self, gameState):
         """
         You do not need to change this method, but you're welcome to.
@@ -76,7 +78,7 @@ class ReflexAgent(Agent):
         "*** YOUR CODE HERE ***"
         return successorGameState.getScore()
 
-def scoreEvaluationFunction(currentGameState):
+def scoreEvaluationFunction(gameState):
     """
       This default evaluation function just returns the score of the state.
       The score is the same one displayed in the Pacman GUI.
@@ -84,7 +86,8 @@ def scoreEvaluationFunction(currentGameState):
       This evaluation function is meant for use with adversarial search agents
       (not reflex agents).
     """
-    return currentGameState.getScore()
+    return gameState.getScore()
+
 
 class MultiAgentSearchAgent(Agent):
     """
@@ -101,7 +104,8 @@ class MultiAgentSearchAgent(Agent):
       is another abstract class.
     """
 
-    def __init__(self, evalFn = 'scoreEvaluationFunction', depth = '2'):
+    def __init__(self, evalFn='scoreEvaluationFunction', depth='2'):
+        super().__init__()
         self.index = 0 # Pacman is always agent index 0
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
@@ -281,7 +285,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         super().__init__(evalFn, depth)
         self.last_positions = []
         self.no_food_steps = 0
-        self.previous_food_distance = None
+        self.previous_food_distance = 0
 
     def getAction(self, gameState):
         """
@@ -290,7 +294,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
           All ghosts should be modeled as choosing uniformly at random from their
           legal moves.
         """
-        best_action, _ = self.expectimax(gameState, depth=0, agentIndex=0)
+        best_action, utility = self.expectimax(gameState, depth=0, agentIndex=0)
         return best_action
 
     def expectimax(self, gameState, depth, agentIndex):
@@ -368,100 +372,85 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         ghost_states = gameState.getGhostStates()
         score = gameState.getScore()
 
-        # Base utility - current score
         utility = score
 
         # ** Food and capsule proximity **
         if food_list:
             closest_food_dist = min([util.manhattanDistance(pacman_pos, food) for food in food_list])
 
-            if self.previous_food_distance is not None and closest_food_dist > self.previous_food_distance:
-                # Apply penalty if distance to food has increased
-                utility -= (closest_food_dist - self.previous_food_distance) * 50000
-
-
-            else:
-                # If no food left, reset previous food distance
-                self.previous_food_distance = None
+            # if self.previous_food_distance is not None and closest_food_dist > self.previous_food_distance:
+            #     # Apply penalty if distance to food has increased
+            #      utility -= (abs(closest_food_dist - self.previous_food_distance)) * 5
 
             self.previous_food_distance = closest_food_dist
 
             if len(food_list) < 10:
                 # Get the distance to the closest food pellet
-
-                if food_list:
-                    # Strong incentive to move towards food
-                    utility += 1000000 / (closest_food_dist + 1)
+                utility += 300 / (closest_food_dist + 1)
 
             else:
-                closest_food_dist = min([util.manhattanDistance(pacman_pos, food) for food in food_list])
-                utility += 1 / (closest_food_dist + 1)
+                utility += 5 / (closest_food_dist + 1)
                 # Reset idle counter if Pacman collected food
                 if pacman_pos in food_list:
-                    if gameState.shielded or gameState.frozen:
-                        utility += 10000000
-                    else:
-                        utility += 100000
+                    utility += 5000
                     self.no_food_steps = 0
                 else:
-                    self.no_food_steps += 10
+                    self.no_food_steps += 1
 
                 # Apply penalty if idle for too long without collecting food
-            if self.no_food_steps > 5:
-                utility -= self.no_food_steps * 1000000  # Increase penalty with time spent idle
+            if self.no_food_steps > 15:
+                utility -= self.no_food_steps * 10  # Increase penalty with time spent idle
+
+        if gameState.isShieldEaten():
+            utility += 100
+
+        if gameState.isFreezerEaten():
+            utility += 100
 
         # ** Power-ups proximity **
-        if gameState.shields:
-            closest_shield_dist = min([util.manhattanDistance(pacman_pos, shield) for shield in gameState.shields])
-            utility += 100 / (closest_shield_dist + 1)
+        if gameState.getShields():
+            closest_shield_dist = min([util.manhattanDistance(pacman_pos, shield) for shield in gameState.getShields()])
+            utility += 15 / (closest_shield_dist + 1)
 
-        if gameState.freezers:
-            closest_freezer_dist = min([util.manhattanDistance(pacman_pos, freezer) for freezer in gameState.freezers])
-            utility += 100 / (closest_freezer_dist + 1)
+        if gameState.getFreezers():
+            closest_freezer_dist = min([util.manhattanDistance(pacman_pos, freezer) for freezer in gameState.getFreezers()])
+            utility += 15 / (closest_freezer_dist + 1)
 
-        if gameState.intangibleObj:
+        if gameState.getIntangibleObJ():
             closest_intangible_dist = min(
-                [util.manhattanDistance(pacman_pos, intangible) for intangible in gameState.intangibleObj])
-            utility += 7 / (closest_intangible_dist + 1)
+                [util.manhattanDistance(pacman_pos, intangible) for intangible in gameState.getIntangibleObJ()])
+            utility += 1000 / (closest_intangible_dist + 1)
 
         # ** Ghost proximity **
         for ghost in ghost_states:
             ghost_distance = util.manhattanDistance(pacman_pos, ghost.getPosition())
 
             if ghost_distance > 0:
-                if gameState.shielded or gameState.frozen or ghost.scaredTimer > 0:
+                if gameState.isShielded or gameState.isFrozen or ghost.scaredTimer > 0:
                     # Reduced threat if shielded or frozen
-                    utility += 200000
-                elif gameState.intangible:
+                    utility += 25 / (ghost_distance + 1)
+                elif gameState.getIntangible:
                     # Pass-through mode
                     utility += 5 / (ghost_distance + 1)
                 else:
                     # Normal threat level
-                    utility -= 10 / ghost_distance
+                    utility -= 20 / ghost_distance
         # ** Oscillation detection **
         # Track last few positions and check for repeated oscillation patterns
         self.last_positions.append(pacman_pos)
-        if len(self.last_positions) > 4:
+        if len(self.last_positions) > 16:
             self.last_positions.pop(0)
 
         # Check if Pacman is oscillating between two or three positions
         if len(set(self.last_positions)) <= 4:
-            closest_food_dist = max([util.manhattanDistance(pacman_pos, food) for food in food_list])
-            utility -= closest_food_dist * 20000  # Penalty for oscillating pattern
+            utility -= 20  # Penalty for oscillating pattern
 
         return utility
 
 
-def betterEvaluationFunction(currentGameState):
-    """
-      Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
-      evaluation function (question 5).
 
-      DESCRIPTION: <write something here so we know what you did>
-    """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+
 
 # Abbreviation
-better = betterEvaluationFunction
+# better = betterEvaluationFunction
 
