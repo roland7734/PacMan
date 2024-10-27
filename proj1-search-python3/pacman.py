@@ -112,7 +112,7 @@ class GameState:
         # Time passes
         if agentIndex == 0:
             state.data.scoreChange += -TIME_PENALTY # Penalty for waiting around
-            PacmanRules.decrementSpeedBoosterTimer(state.data.agentStates[0])
+            PacmanRules.decrementIntangibilityTimer(state.data.agentStates[0])
             PacmanRules.decrementShieldTimer(state.data.agentStates[0])
 
         else:
@@ -180,8 +180,8 @@ class GameState:
         Returns a list of positions (x,y) of the remaining capsules.
         """
         return self.data.capsules
-    def getSpeedBoosters(self):
-        return self.data.speedBoosters
+    def getIntangibleObj(self):
+        return self.data.intangibleObj
 
     def getShields(self):
         return self.data.shields
@@ -220,6 +220,8 @@ class GameState:
         return self.data.layout.blueTunnel
     def getGreenTunnels(self):
         return self.data.layout.greenTunnel
+    def getIntangiblity(self):
+        return self.data.agentStates[0].intangibleTimer>0
 
     def hasFood(self, x, y):
         return self.data.food[x][y]
@@ -274,7 +276,7 @@ class GameState:
         """
         self.data.initialize(layout, numGhostAgents)
     def changeTimePenalty(pacmanState):
-        GameState.TIME_PENALTY = [0.33 if pacmanState.speedBoosterTimer > 0 else 1]
+        GameState.TIME_PENALTY = 1
 
 ############################################################################
 #                     THE HIDDEN SECRETS OF PACMAN                         #
@@ -285,7 +287,7 @@ class GameState:
 SCARED_TIME = 40    # Moves ghosts are scared
 COLLISION_TOLERANCE = 0.7 # How close ghosts must be to Pacman to kill
 TIME_PENALTY = 1 # Number of points lost each round
-SPEED_BOOST_TIME = 20 # Moves pacman is fast
+INTANGIBLE_TIME = 20 # Moves pacman is fast
 SHIELD_TIME = 20 #Pacman is protected
 FREEZER_TIME = 20
 class ClassicGameRules:
@@ -352,7 +354,6 @@ class PacmanRules:
     the classic game rules.
     """
     PACMAN_SPEED = 1.0
-    BOOSTED_PACMAN_SPEED = 3.0
     # def increaseSpeed(state):
     #     state.PACMAN_SPEED = PacmanRules.BOOSTED_PACMAN_SPEED
     #
@@ -376,11 +377,7 @@ class PacmanRules:
 
         pacmanState = state.data.agentStates[0]
 
-        # if pacmanState.speedBoosterTimer>0: PacmanRules.increaseSpeed(pacmanState)
-        # else: PacmanRules.decreaseSpeed(pacmanState)
-        # Update Configuration
 
-        GameState.changeTimePenalty(pacmanState)
         vector = Actions.directionToVector(action, PacmanRules.PACMAN_SPEED)
 
         pacmanState.configuration = pacmanState.configuration.generateSuccessor(vector,state)
@@ -395,12 +392,12 @@ class PacmanRules:
         return state.data._agentTeleported
     applyAction = staticmethod( applyAction )
 
-    def decrementSpeedBoosterTimer(pacmanState):
-        timer = pacmanState.speedBoosterTimer
+    def decrementIntangibilityTimer(pacmanState):
+        timer = pacmanState.intangibleTimer
         # if timer == 1:
         #     pacmanState.configuration.pos = nearestPoint(pacmanState.configuration.pos)
-        pacmanState.speedBoosterTimer = max(0, timer - TIME_PENALTY)
-    decrementSpeedBoosterTimer = staticmethod(decrementSpeedBoosterTimer)
+        pacmanState.intangibleTimer = max(0, timer - TIME_PENALTY)
+    decrementIntangibilityTimer = staticmethod(decrementIntangibilityTimer)
 
     def decrementShieldTimer(pacmanState):
         timer = pacmanState.shieldTimer
@@ -430,12 +427,12 @@ class PacmanRules:
             # Reset all ghosts' scared timers
             for index in range( 1, len( state.data.agentStates ) ):
                 state.data.agentStates[index].scaredTimer = SCARED_TIME
-        # Eat speedBooster
-        if position in state.getSpeedBoosters():
-            state.data.speedBoosters.remove(position)
-            state.data._speedBoosterEaten = position
-            state.data.speedBoosted = True
-            state.data.agentStates[0].speedBoosterTimer = SPEED_BOOST_TIME
+        # Eat Intangible ability
+        if position in state.getIntangibleObj():
+            state.data.intangibleObj.remove(position)
+            state.data._intangibilityEaten = position
+            state.data.intangible = True
+            state.data.agentStates[0].intangibleTimer = INTANGIBLE_TIME
 
         # Eat shield
         if position in state.getShields():

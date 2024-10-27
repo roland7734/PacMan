@@ -208,8 +208,8 @@ class PositionSearchProblem(search.SearchProblem):
                 elif next_pos in self.greenTunnels:
                     nextState = [p for p in self.greenTunnels if p != next_pos][0]
 
-            cost = self.costFn(nextState)
-            successors.append( ( nextState, action, cost) )
+                cost = self.costFn(nextState)
+                successors.append( ( nextState, action, cost) )
 
         # Bookkeeping for display purposes
         self._expanded += 1 # DO NOT CHANGE
