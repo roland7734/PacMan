@@ -349,6 +349,7 @@ class PacmanGraphics:
         moveCircle(image[0], screenPosition, r, endpoints)
         refresh()
 
+
     def animatePacman(self, pacman, prevPacman, image,didTeleport):
 
         if self.frameTime < 0:

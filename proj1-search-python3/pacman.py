@@ -382,18 +382,16 @@ class PacmanRules:
 
         GameState.changeTimePenalty(pacmanState)
         vector = Actions.directionToVector(action, PacmanRules.PACMAN_SPEED)
-        for _ in range(3 if pacmanState.speedBoosterTimer > 0 else 1):
 
-            pacmanState.configuration = pacmanState.configuration.generateSuccessor(vector,state)
+        pacmanState.configuration = pacmanState.configuration.generateSuccessor(vector,state)
 
-
-            # Eat
-            next = pacmanState.configuration.getPosition()
-            nearest = nearestPoint(next)
-            if manhattanDistance(nearest, next) <= 0.5:
-                # Remove food
-                PacmanRules.consume(nearest, state)
-                GhostRules.checkDeath(state, 0)
+        # Eat
+        next = pacmanState.configuration.getPosition()
+        nearest = nearestPoint(next)
+        if manhattanDistance(nearest, next) <= 0.5:
+            # Remove food
+            PacmanRules.consume(nearest, state)
+            GhostRules.checkDeath(state, 0)
         return state.data._agentTeleported
     applyAction = staticmethod( applyAction )
 
