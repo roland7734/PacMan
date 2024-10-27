@@ -86,8 +86,8 @@ FREEZER_SIZE = 1.0
 SHIELD_COLOR = formatColor(0,0.32,1)
 SHIELD_SIZE = 1.0
 
-SPEED_BOOSTER_COLOR = formatColor(1,0.63,1)
-SPEED_BOOSTER_SIZE = 1.0
+INTANGIBLE_COLOR = formatColor(1, 0.63, 1)
+INTANGIBLE_OBJECT_SIZE = 1.0
 
 # Drawing walls
 WALL_RADIUS = 0.15
@@ -202,7 +202,7 @@ class PacmanGraphics:
         self.infoPane = InfoPane(layout, self.gridSize)
         self.currentState = layout
         self.shield_photo = self.createImage("Images/Shield.png", SHIELD_SIZE)
-        self.booster_photo = self.createImage("Images/SpeedBooster.png", SPEED_BOOSTER_SIZE)
+        self.intangible_photo = self.createImage("Images/Intangibility.png", INTANGIBLE_OBJECT_SIZE)
         self.freezer_photo = self.createImage("Images/Freeze.png", FREEZER_SIZE)
 
     def createImage(self,image,size):
@@ -232,7 +232,7 @@ class PacmanGraphics:
         self.capsules = self.drawCapsules(layout.capsules)
         self.drawTunnel(layout.blueTunnel, GHOST_COLORS[1])
         self.drawTunnel(layout.greenTunnel, GHOST_COLORS[3])
-        self.speedBoosters = self.drawSpeedBooster(layout.speedBoosters)
+        self.intangibleObj = self.drawIntangibleObj(layout.intangibleObj)
         self.shields = self.drawShield(layout.shields)
         self.freezers = self.drawFreezer(layout.freezers)
         # self.blueTunnel = self.drawTunnel(layout.blueTunnel, GHOST_COLORS[1])
@@ -283,8 +283,8 @@ class PacmanGraphics:
             self.removeFood(newState._foodEaten, self.food)
         if newState._capsuleEaten != None:
             self.removeCapsule(newState._capsuleEaten, self.capsules)
-        if newState._speedBoosterEaten != None:
-            self.removeBooster(newState._speedBoosterEaten, self.speedBoosters)
+        if newState._intangibilityEaten != None:
+            self.removeIntangibleObj(newState._intangibilityEaten, self.intangibleObj)
         if newState._shieldEaten != None:
             self.removeShield(newState._shieldEaten, self.shields)
         if newState._freezerEaten != None:
@@ -378,8 +378,8 @@ class PacmanGraphics:
             return GHOST_COLORS[ghostIndex]
 
     def getPacmanColor(self, pacman):
-        if pacman.speedBoosterTimer > 0:
-            return SPEED_BOOST_COLOR
+        if pacman.intangibleTimer > 0:
+            return INTANGIBLE_COLOR
         if pacman.shieldTimer > 0:
             return SHIELDED_COLOR
         return PACMAN_COLOR
@@ -627,15 +627,15 @@ class PacmanGraphics:
             freezerImages[freezer] = image_id
         return freezerImages
 
-    def drawSpeedBooster(self, speedBoosters):
-        speedBoosterImages = {}
-        for speedBooster in speedBoosters:
-            (screen_x, screen_y) = self.to_screen(speedBooster)
+    def drawIntangibleObj(self, intangibleObj):
+        intangibleImages = {}
+        for intObj in intangibleObj:
+            (screen_x, screen_y) = self.to_screen(intObj)
 
-            image_id = graphicsUtils._canvas.create_image(screen_x, screen_y, image=self.booster_photo)
+            image_id = graphicsUtils._canvas.create_image(screen_x, screen_y, image=self.intangible_photo)
 
-            speedBoosterImages[speedBooster] = image_id
-        return speedBoosterImages
+            intangibleImages[intObj] = image_id
+        return intangibleImages
 
     def get_dynamic_offset(self):
         """Get a small offset for the dynamic motion within the grid cell."""
@@ -693,9 +693,9 @@ class PacmanGraphics:
         x, y = cell
         remove_from_screen(shieldImages[(x, y)])
 
-    def removeBooster(self, cell, speedBoosterImages):
+    def removeIntangibleObj(self, cell, Images):
         x, y = cell
-        remove_from_screen(speedBoosterImages[(x, y)])
+        remove_from_screen(Images[(x, y)])
 
     def removeFood(self, cell, foodImages ):
         x, y = cell

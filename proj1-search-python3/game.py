@@ -118,6 +118,8 @@ class Configuration:
         direction = Actions.vectorToDirection(vector)
         if direction == Directions.STOP:
             direction = self.direction # There is no stop direction
+        next_x=x + dx
+        next_y=y + dy
         next_pos=(x + dx, y+dy)
         if next_pos!=self.pos:
             if next_pos in blueTunnel:
@@ -130,10 +132,12 @@ class Configuration:
             elif next_pos in greenTunnel:
                 # Get the other blue tunnel exit
                 other_green_tunnel = [p for p in greenTunnel if p != next_pos][0]
-
                 # Teleport Pacman to the new blue tunnel position
                 state.data._agentTeleported = True
                 return Configuration(other_green_tunnel, direction)
+            walls=state.data.layout.walls
+            if state.data.agentStates[0].intangibleTimer>0 and walls[int(next_x)][int(next_y)]==1 and not walls[int(next_x+dx)][int(next_y+dy)]:
+                return Configuration((next_x+dx,next_y+dy), direction)
         return Configuration(next_pos, direction)
 
 class AgentState:
@@ -146,7 +150,7 @@ class AgentState:
         self.configuration = startConfiguration
         self.isPacman = isPacman
         self.scaredTimer = 0
-        self.speedBoosterTimer = 0
+        self.intangibleTimer = 0
         self.freezerTimer = 0
         self.shieldTimer = 0
         self.numCarrying = 0
@@ -161,18 +165,19 @@ class AgentState:
     def __eq__( self, other ):
         if other == None:
             return False
-        return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer and self.freezerTimer== other.freezerTimer and self.shieldTimer == other.shieldTimer and self.speedBoosterTimer== other.speedBoosterTimer
+        return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer and self.freezerTimer== other.freezerTimer and self.shieldTimer == other.shieldTimer and self.intangibleTimer== other.intangibleTimer
 
     def __hash__(self):
-        return hash(hash(self.configuration) + 13 * hash(self.scaredTimer)+31*hash(self.speedBoosterTimer)+7*hash(self.shieldTimer))
+        return hash(hash(self.configuration) + 13 * hash(self.scaredTimer)+31*hash(self.intangibleTimer)+7*hash(self.shieldTimer))
 
     def copy( self ):
         state = AgentState( self.start, self.isPacman )
         state.configuration = self.configuration
         state.scaredTimer = self.scaredTimer
-        state.speedBoosterTimer = self.speedBoosterTimer
+        state.intangibleTimer = self.intangibleTimer
         state.shieldTimer = self.shieldTimer
         state.freezerTimer = self.freezerTimer
+        state.intangibleTimer = self.intangibleTimer
         state.numCarrying = self.numCarrying
         state.numReturned = self.numReturned
         return state
@@ -355,11 +360,16 @@ class Actions:
         return (dx * speed, dy * speed)
     directionToVector = staticmethod(directionToVector)
 
+    def outOfBounds(walls,next_x,next_y):
+        if next_x < 0 or next_x == walls.width or next_y < 0 or next_y == walls.height:
+            return True
+        return False
+
     def getPossibleActions(config, state):
         """
         Returns a list of possible actions
         """
-        # Retrieve walls and portals (blueTunnel, greenTunnel)
+        # Retrieve walls
         walls = state.data.layout.walls
         possible = []
 
@@ -375,7 +385,7 @@ class Actions:
             dx, dy = vec
             next_x = x_int + dx
             next_y = y_int + dy
-            if not walls[next_x][next_y]:
+            if not walls[next_x][next_y] or (state.data.agentStates[0].intangibleTimer>0 and not Actions.outOfBounds(walls, next_x+dx, next_y+dy) and not walls[next_x+dx][next_y+dy]):
                 possible.append(dir)
 
         return possible
@@ -417,18 +427,18 @@ class GameStateData:
             self.layout = prevState.layout
             self._eaten = prevState._eaten
             self.score = prevState.score
-            self.speedBoosted = False
+            self.intangible = False
             self.shielded = False
             self.frozen = False
-            # self.freezers = prevState.freezers[:]
-            self.speedBoosters = prevState.speedBoosters[:] #it is a list
+
+            self.intangibleObj = prevState.intangibleObj[:]
             self.shields = prevState.shields[:]
             self.freezers = prevState.freezers[:]
 
         self._foodEaten = None
         self._foodAdded = None
         self._capsuleEaten = None
-        self._speedBoosterEaten = None
+        self._intangibilityEaten = None
         self._agentMoved = None
         self._agentTeleported = None
         self._shieldEaten = None
@@ -447,7 +457,7 @@ class GameStateData:
         state._foodAdded = self._foodAdded
         state._capsuleEaten = self._capsuleEaten
         state._shieldEaten = self._shieldEaten
-        state._speedBoosterEaten = self._speedBoosterEaten
+        state._intangibilityEaten = self._intangibilityEaten
         state._freezerEaten = self._freezerEaten
         return state
 
@@ -467,7 +477,7 @@ class GameStateData:
         if not self.food == other.food: return False
         if not self.capsules == other.capsules: return False
         if not self.score == other.score: return False
-        if not self.speedBoosters == other.speedBoosters: return False
+        if not self.intangibleObj == other.intangibleObj: return False
         if not self.freezers == other.freezers: return False
         if not self.shields == other.shields: return False
         return True
@@ -482,8 +492,8 @@ class GameStateData:
             except TypeError as e:
                 print(e)
                 #hash(state)
-        return int((hash(tuple(self.agentStates)) + 13*hash(self.food) + 113* hash(tuple(self.capsules)) + 7 * hash(self.score)+
-                    31*hash(tuple(self.speedBoosters)) + 41* hash(tuple(self.shields))+ 97* hash(tuple(self.freezers)) )% 1048575 )
+        return int((hash(tuple(self.agentStates)) + 13 * hash(self.food) + 113 * hash(tuple(self.capsules)) + 7 * hash(self.score) +
+                    31 * hash(tuple(self.intangibleObj)) + 41 * hash(tuple(self.shields)) + 97 * hash(tuple(self.freezers))) % 1048575)
 
     def __str__( self ):
         width, height = self.layout.width, self.layout.height
@@ -507,7 +517,7 @@ class GameStateData:
 
         for x, y in self.capsules:
             map[x][y] = 'o'
-        for x,y in self.speedBoosters:
+        for x,y in self.intangibleObj:
             map[x][y] = 'B'
         for x,y in self.shields:
             map[x][y] = 'S'
@@ -550,7 +560,7 @@ class GameStateData:
         self.food = layout.food.copy()
         #self.capsules = []
         self.capsules = layout.capsules[:]
-        self.speedBoosters = layout.speedBoosters[:]
+        self.intangibleObj = layout.intangibleObj[:]
         self.shields = layout.shields[:]
         self.freezers = layout.freezers[:]
         self.layout = layout

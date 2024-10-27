@@ -35,7 +35,7 @@ class Layout:
         self.capsules = []
         self.blueTunnel = []
         self.greenTunnel = []
-        self.speedBoosters = []
+        self.intangibleObj = []
         self.freezers = []
         self.shields = []
         self.agentPositions = []
@@ -143,7 +143,7 @@ class Layout:
         elif layoutChar == 'Y':
             self.greenTunnel.append((x,y))
         elif layoutChar == 'B':
-            self.speedBoosters.append((x,y))
+            self.intangibleObj.append((x, y))
         elif layoutChar == 'S':
             self.shields.append((x,y))
         elif layoutChar == 'F':
