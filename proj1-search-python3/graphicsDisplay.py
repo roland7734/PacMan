@@ -89,6 +89,8 @@ SHIELD_SIZE = 1.0
 SPEED_BOOSTER_COLOR = formatColor(1,0.63,1)
 SPEED_BOOSTER_SIZE = 1.0
 
+FIRE_SIZE = 1.0
+ICE_SIZE = 2.0
 # Drawing walls
 WALL_RADIUS = 0.15
 
@@ -204,6 +206,8 @@ class PacmanGraphics:
         self.shield_photo = self.createImage("Images/Shield.png", SHIELD_SIZE)
         self.booster_photo = self.createImage("Images/SpeedBooster.png", SPEED_BOOSTER_SIZE)
         self.freezer_photo = self.createImage("Images/Freeze.png", FREEZER_SIZE)
+        self.fire_photo = self.createImage("Images/fire.png", FIRE_SIZE)
+        self.ice_photo = self.createImage("Images/ice.png", ICE_SIZE)
 
     def createImage(self,image,size):
         original_image = Image.open(image)
@@ -347,10 +351,39 @@ class PacmanGraphics:
         color=self.getPacmanColor(pacman)
         edit(image[0], ('fill', color), ('outline', color))
         moveCircle(image[0], screenPosition, r, endpoints)
+
+        if pacman.shieldTimer > 0:
+            shieldOffset = (-r * 0.6, r * 0.6)
+            shieldPosition = (screenPosition[0] + shieldOffset[0], screenPosition[1] + shieldOffset[1])
+            if not hasattr(self, 'shield_image_id') or self.shield_image_id is None:
+                self.shield_image_id = graphicsUtils._canvas.create_image(
+                    shieldPosition[0], shieldPosition[1], image=self.shield_photo
+                )
+
+            graphicsUtils._canvas.coords(self.shield_image_id, shieldPosition[0], shieldPosition[1])
+
+        elif hasattr(self, 'shield_image_id') and self.shield_image_id is not None:
+            graphicsUtils._canvas.delete(self.shield_image_id)
+            self.shield_image_id = None
+
+
+        if pacman.speedBoosterTimer > 0:
+            fireOffset = (-r * 2, r * 1)
+            firePosition = (screenPosition[0] + fireOffset[0], screenPosition[1] + fireOffset[1])
+            if not hasattr(self, 'fire_image_id') or self.fire_image_id is None:
+                self.fire_image_id = graphicsUtils._canvas.create_image(
+                    firePosition[0], firePosition[1], image=self.fire_photo
+                )
+
+            graphicsUtils._canvas.coords(self.fire_image_id, firePosition[0], firePosition[1])
+
+        elif hasattr(self, 'fire_image_id') and self.fire_image_id is not None:
+            graphicsUtils._canvas.delete(self.fire_image_id)
+            self.fire_image_id = None
+
         refresh()
 
-
-    def animatePacman(self, pacman, prevPacman, image,didTeleport):
+    def animatePacman(self, pacman, prevPacman, image, didTeleport):
 
         if self.frameTime < 0:
             print('Press any key to step forward, "q" to play')
@@ -445,6 +478,24 @@ class PacmanGraphics:
         for ghostImagePart in ghostImageParts:
             move_by(ghostImagePart, delta)
         refresh()
+
+        if ghost.freezerTimer > 0:
+            iceOffset = (0, 0)
+            icePosition = (new_x + iceOffset[0], new_y + iceOffset[1])
+
+            ice_image_id = getattr(self, f'ice_image_id_{ghostIndex}', None)
+
+            if ice_image_id is None:
+                ice_image_id = graphicsUtils._canvas.create_image(
+                    icePosition[0], icePosition[1], image=self.ice_photo
+                )
+                setattr(self, f'ice_image_id_{ghostIndex}', ice_image_id)
+            else:
+                graphicsUtils._canvas.coords(ice_image_id, icePosition[0], icePosition[1])
+
+        elif getattr(self, f'ice_image_id_{ghostIndex}', None) is not None:
+            graphicsUtils._canvas.delete(getattr(self, f'ice_image_id_{ghostIndex}'))
+            setattr(self, f'ice_image_id_{ghostIndex}', None)
 
         if ghost.scaredTimer > 0:
             color = SCARED_COLOR
