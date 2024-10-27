@@ -153,8 +153,9 @@ class PositionSearchProblem(search.SearchProblem):
         goal: A position in the gameState
         """
         self.walls = gameState.getWalls()
+        self.capsules = gameState.getCapsules()
         self.blueTunnels = gameState.getBlueTunnels()
-        self.greenTunnels= gameState.getGreenTunnels()
+        self.greenTunnels = gameState.getGreenTunnels()
         self.startState = gameState.getPacmanPosition()
         if start != None: self.startState = start
         self.goal = goal
@@ -182,6 +183,23 @@ class PositionSearchProblem(search.SearchProblem):
 
         return isGoal
 
+    def isGoalStateAttained(self, state):
+        """
+        Returns True if all pellets have been collected, making it the goal state.
+        """
+
+
+        isGoal = len(self.capsules) == 0
+
+        if isGoal and self.visualize:
+            self._visitedlist.append(state)
+            import __main__
+            if '_display' in dir(__main__):
+                if 'drawExpandedCells' in dir(__main__._display):  # @UndefinedVariable
+                    __main__._display.drawExpandedCells(self._visitedlist)  # @UndefinedVariable
+
+        return isGoal
+
     def getSuccessors(self, state):
         """
         Returns successor states, the actions they require, and a cost of 1.
@@ -199,6 +217,9 @@ class PositionSearchProblem(search.SearchProblem):
             x,y = state
             dx, dy = Actions.directionToVector(action)
             nextx, nexty = int(x + dx), int(y + dy)
+
+            nextState = None
+
             if not self.walls[nextx][nexty]:
                 nextState = (nextx, nexty)
             elif (nextx,nexty)!=(x,y):
@@ -207,9 +228,9 @@ class PositionSearchProblem(search.SearchProblem):
                     nextState = [p for p in self.blueTunnels if p != next_pos][0]
                 elif next_pos in self.greenTunnels:
                     nextState = [p for p in self.greenTunnels if p != next_pos][0]
-
-            cost = self.costFn(nextState)
-            successors.append( ( nextState, action, cost) )
+            if nextState is not None:
+                cost = self.costFn(nextState)
+                successors.append( ( nextState, action, cost) )
 
         # Bookkeeping for display purposes
         self._expanded += 1 # DO NOT CHANGE
@@ -392,6 +413,13 @@ class FoodSearchProblem:
         self.startingGameState = startingGameState
         self._expanded = 0 # DO NOT CHANGE
         self.heuristicInfo = {} # A dictionary for the heuristic to store information
+        self.capsules = startingGameState.getCapsules
+        self.blueTunnels = startingGameState.getBlueTunnels()
+        self.greenTunnels = startingGameState.getGreenTunnels()
+        self.costFn = lambda x: 1
+
+        self._visited, self._visitedlist, self._expanded = {}, [], 0 # DO NOT CHANGE
+
 
     def getStartState(self):
         return self.start
@@ -400,17 +428,51 @@ class FoodSearchProblem:
         return state[1].count() == 0
 
     def getSuccessors(self, state):
-        "Returns successor states, the actions they require, and a cost of 1."
+        """
+        Returns successor states, the actions they require, and a cost of 1.
+
+         As noted in search.py:
+             For a given state, this should return a list of triples,
+         (successor, action, stepCost), where 'successor' is a
+         successor to the current state, 'action' is the action
+         required to get there, and 'stepCost' is the incremental
+         cost of expanding to that successor
+        """
+
         successors = []
-        self._expanded += 1 # DO NOT CHANGE
-        for direction in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
-            x,y = state[0]
-            dx, dy = Actions.directionToVector(direction)
+        position, foodGrid = state
+        x, y = position
+
+
+
+        for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+
+            dx, dy = Actions.directionToVector(action)
             nextx, nexty = int(x + dx), int(y + dy)
+
+            nextState = None
+            nextFoodGrid = foodGrid.copy()
+
             if not self.walls[nextx][nexty]:
-                nextFood = state[1].copy()
-                nextFood[nextx][nexty] = False
-                successors.append( ( ((nextx, nexty), nextFood), direction, 1) )
+                nextState = (nextx, nexty)
+                if nextFoodGrid[nextx][nexty]:
+                    nextFoodGrid[nextx][nexty] = False
+
+                next_pos=(nextx,nexty)
+                if next_pos in self.blueTunnels:
+                    nextState = [p for p in self.blueTunnels if p != next_pos][0]
+                elif next_pos in self.greenTunnels:
+                    nextState = [p for p in self.greenTunnels if p != next_pos][0]
+            if nextState is not None:
+                cost = self.costFn(nextState)
+                successors.append( ( (nextState, nextFoodGrid), action, cost) )
+
+        # Bookkeeping for display purposes
+        self._expanded += 1 # DO NOT CHANGE
+        if state not in self._visited:
+            self._visited[state] = True
+            self._visitedlist.append(state)
+
         return successors
 
     def getCostOfActions(self, actions):
@@ -430,7 +492,7 @@ class FoodSearchProblem:
 class AStarFoodSearchAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
     def __init__(self):
-        self.searchFunction = lambda prob: search.aStarSearch(prob, foodHeuristic)
+        self.searchFunction = lambda prob: search.aStarSearchAllPellets(prob, foodHeuristic)
         self.searchType = FoodSearchProblem
 
 def foodHeuristic(state, problem):
@@ -463,7 +525,15 @@ def foodHeuristic(state, problem):
     """
     position, foodGrid = state
     "*** YOUR CODE HERE ***"
-    return 0
+
+    foodList = foodGrid.asList()
+    if not foodList:
+        return 0
+
+    distances = [util.manhattanDistance(position, food) for food in foodList]
+
+    return max(distances)
+
 
 class ClosestDotSearchAgent(SearchAgent):
     "Search for all food using a sequence of searches"

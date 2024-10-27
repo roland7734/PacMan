@@ -390,6 +390,8 @@ def move_to(object, x, y=None,
 
     horiz = True
     newCoords = []
+    if _canvas.coords(object)[0:2] == []:
+        return None
     current_x, current_y = _canvas.coords(object)[0:2] # first point
     for coord in  _canvas.coords(object):
         if horiz:

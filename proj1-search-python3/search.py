@@ -19,6 +19,7 @@ Pacman agents (in searchAgents.py).
 import random
 
 import util
+from searchAgents import foodHeuristic
 
 
 class SearchProblem:
@@ -198,7 +199,89 @@ def allcorners(problem):
     priorityQueue = util.PriorityQueue()
 
 
+def aStarSearchAllPellets(problem, heuristic=nullHeuristic):
+    """Search the node that has the lowest combined cost and heuristic first."""
 
+    priorityQueue = util.PriorityQueue()
+    startState = problem.getStartState()
+    priorityQueue.push((startState, [], 0), 0 + heuristic(startState, problem))
+
+    visited = set()
+
+    while not priorityQueue.isEmpty():
+        state, path, costUntilNow = priorityQueue.pop()
+
+        if problem.isGoalState(state):
+            return path
+
+        if state not in visited:
+            visited.add(state)
+
+            for successor, action, stepCost in problem.getSuccessors(state):
+                if successor not in visited:
+                    newCost = costUntilNow + stepCost
+                    priority = newCost + heuristic(successor, problem)
+                    priorityQueue.push((successor, path + [action], newCost), priority)
+
+    return []
+
+def aStarHelper(state, problem):
+    """
+    Performs the A* search from the current state and returns the path to the goal.
+    """
+    from util import PriorityQueue
+    visited = set()
+    queue = PriorityQueue()
+    queue.push((state, []), 0)
+
+    while not queue.isEmpty():
+        currentState, path = queue.pop()
+        if currentState in visited:
+            continue
+
+        visited.add(currentState)
+        if problem.isGoalState(currentState):
+            return path
+
+        for successor, action, cost in problem.getSuccessors(currentState):
+            newPath = path + [action]
+            priority = len(newPath) + foodHeuristic(successor, problem)
+            queue.push((successor, newPath), priority)
+
+    return []
+def realTimeAStar(problem):
+    """
+    Perform Real-Time A* search on the FoodSearchProblem.
+    """
+    startState = problem.getStartState()
+    foodList = problem.getStartState()[1].asList()
+    if not foodList:
+        return []  # No food to collect, return empty action list
+
+    actions = []
+    currentState = startState
+
+    while True:
+        path = aStarHelper(currentState, problem)
+        if not path:
+            break  # No more actions possible
+
+        actions.extend(path)
+        # Update the state after taking the actions
+        for action in path:
+            successors = problem.getSuccessors(currentState)
+            # Update currentState based on the action taken
+            for successor in successors:
+                if successor[1] == action:  # match action
+                    currentState = successor[0]
+                    break
+
+        # Update food list
+        foodList = currentState[1].asList()
+        if not foodList:
+            break  # All food collected
+
+    return actions
 
 
 # Abbreviations
@@ -206,3 +289,5 @@ bfs = breadthFirstSearch
 dfs = depthFirstSearch
 astar = aStarSearch
 ucs = uniformCostSearch
+astarp = aStarSearchAllPellets
+rt = realTimeAStar()
